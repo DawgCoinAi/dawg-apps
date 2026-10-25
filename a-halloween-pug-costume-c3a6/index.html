@@ -1,0 +1,679 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>DAWG's Spooky Costume Picker</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Creepster&family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        :root {
+            --tg-theme-bg-color: #0b0f1a;
+            --tg-theme-text-color: #f2f5ff;
+            --tg-theme-hint-color: #8a96ad;
+            --tg-theme-button-color: #ff7a2f;
+            --tg-theme-button-text-color: #ffffff;
+            --accent: #ff7a2f;
+            --secondary: #a855f7;
+            --card-bg: rgba(255, 255, 255, 0.05);
+            --success: #4ade80;
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Nunito', sans-serif;
+            background-color: var(--tg-theme-bg-color);
+            color: var(--tg-theme-text-color);
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Typography */
+        h1, h2, h3 {
+            font-family: 'Creepster', cursive;
+            letter-spacing: 1px;
+            margin: 0;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        /* Layouts */
+        .screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            transition: opacity 0.4s ease, transform 0.4s ease;
+            opacity: 0;
+            pointer-events: none;
+            transform: scale(0.95);
+            z-index: 1;
+        }
+
+        .screen.active {
+            opacity: 1;
+            pointer-events: all;
+            transform: scale(1);
+            z-index: 10;
+        }
+
+        /* Welcome Screen */
+        .logo-area {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        .logo-area svg {
+            width: 120px;
+            height: 120px;
+            margin-bottom: 20px;
+            filter: drop-shadow(0 0 10px var(--accent));
+        }
+
+        .btn {
+            background: var(--tg-theme-button-color);
+            color: var(--tg-theme-button-text-color);
+            border: none;
+            padding: 16px 32px;
+            border-radius: 16px;
+            font-size: 18px;
+            font-weight: 800;
+            cursor: pointer;
+            width: 100%;
+            max-width: 300px;
+            box-shadow: 0 4px 12px rgba(255, 122, 47, 0.3);
+            transition: transform 0.1s, filter 0.2s;
+            font-family: 'Nunito', sans-serif;
+        }
+
+        .btn:active {
+            transform: scale(0.96);
+            filter: brightness(0.9);
+        }
+
+        .btn-secondary {
+            background: var(--card-bg);
+            color: var(--tg-theme-text-color);
+            margin-top: 12px;
+        }
+
+        /* Picker Screen */
+        .picker-container {
+            width: 100%;
+            max-width: 400px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .costume-stage {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .costume-card {
+            position: absolute;
+            width: 280px;
+            height: 380px;
+            background: var(--card-bg);
+            border-radius: 24px;
+            border: 2px solid rgba(255,255,255,0.1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.3s;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            backface-visibility: hidden;
+        }
+
+        .costume-card svg {
+            width: 180px;
+            height: 180px;
+            margin-bottom: 20px;
+        }
+
+        .costume-name {
+            font-size: 24px;
+            color: var(--accent);
+            font-weight: 900;
+            margin-bottom: 8px;
+        }
+
+        .costume-desc {
+            font-size: 14px;
+            color: var(--tg-theme-hint-color);
+            text-align: center;
+            padding: 0 20px;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            margin-top: 20px;
+            gap: 16px;
+        }
+
+        .control-btn {
+            flex: 1;
+            height: 60px;
+            border-radius: 20px;
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            cursor: pointer;
+            background: var(--card-bg);
+            color: var(--tg-theme-text-color);
+            transition: transform 0.1s;
+        }
+
+        .control-btn:active { transform: scale(0.95); }
+        .control-btn.vote-btn { background: var(--tg-theme-button-color); color: white; }
+        .control-btn.prev-btn { background: rgba(255,255,255,0.1); }
+
+        /* Leaderboard Screen */
+        .leaderboard-list {
+            width: 100%;
+            max-width: 320px;
+            margin: 20px 0;
+        }
+
+        .leaderboard-item {
+            background: var(--card-bg);
+            margin-bottom: 12px;
+            padding: 16px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .rank {
+            font-family: 'Creepster', cursive;
+            font-size: 28px;
+            width: 40px;
+            color: var(--accent);
+        }
+
+        .lb-content {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .lb-content svg {
+            width: 40px;
+            height: 40px;
+        }
+
+        .lb-name {
+            font-weight: 700;
+            font-size: 16px;
+        }
+
+        .lb-votes {
+            font-size: 12px;
+            color: var(--tg-theme-hint-color);
+        }
+
+        /* Confetti Canvas */
+        #confetti-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 50;
+        }
+
+        /* Utility */
+        .hidden { display: none !important; }
+        .fade-in { animation: fadeIn 0.5s ease forwards; }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* SVG Styles */
+        .pug-body { fill: #d4a373; }
+        .pug-dark { fill: #333; }
+        .costume-layer { transition: all 0.3s ease; }
+    </style>
+</head>
+<body>
+
+    <!-- Confetti Layer -->
+    <canvas id="confetti-canvas"></canvas>
+
+    <!-- Screen 1: Welcome -->
+    <div id="screen-welcome" class="screen active">
+        <div class="logo-area">
+            <!-- Simple Pug SVG -->
+            <svg viewBox="0 0 100 100">
+                <circle cx="50" cy="50" r="45" class="pug-body" />
+                <circle cx="35" cy="40" r="5" class="pug-dark" />
+                <circle cx="65" cy="40" r="5" class="pug-dark" />
+                <path d="M40 60 Q50 70 60 60" stroke="#333" stroke-width="3" fill="none" stroke-linecap="round"/>
+                <path d="M30 30 Q20 10 40 20" class="pug-dark" fill="none" stroke="#333" stroke-width="4" stroke-linecap="round"/>
+                <path d="M70 30 Q80 10 60 20" class="pug-dark" fill="none" stroke="#333" stroke-width="4" stroke-linecap="round"/>
+            </svg>
+            <h1 style="font-size: 32px; color: var(--accent);">DAWG's<br>Spooky Season</h1>
+            <p style="color: var(--tg-theme-hint-color); margin-top: 10px;">Help DAWG pick the perfect Halloween costume.</p>
+        </div>
+        <button class="btn" onclick="app.start()">Start Voting</button>
+    </div>
+
+    <!-- Screen 2: Picker -->
+    <div id="screen-picker" class="screen">
+        <div class="picker-container">
+            <div class="costume-stage" id="stage">
+                <!-- Cards injected via JS -->
+            </div>
+            
+            <div class="controls">
+                <button class="control-btn prev-btn" onclick="app.prev()">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+                </button>
+                <button class="control-btn vote-btn" onclick="app.vote()">
+                    Vote!
+                </button>
+                <button class="control-btn next-btn" onclick="app.next()">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Screen 3: Results -->
+    <div id="screen-results" class="screen">
+        <div style="text-align: center; margin-bottom: 20px;">
+            <h2 style="font-size: 32px; color: var(--accent);">Top 3 Spooks!</h2>
+            <p style="color: var(--tg-theme-hint-color);">The pack has spoken.</p>
+        </div>
+        
+        <div class="leaderboard-list" id="leaderboard">
+            <!-- Items injected via JS -->
+        </div>
+
+        <button class="btn" onclick="app.reset()">Vote Again</button>
+    </div>
+
+    <script>
+        // --- Data: Costumes ---
+        const COSTUMES = [
+            {
+                id: 'vampire',
+                name: 'Dracug',
+                desc: 'A classic bite with a cape.',
+                color: '#9d0208',
+                svg: `
+                    <g transform="translate(50,50)">
+                        <circle r="45" class="pug-body" />
+                        <circle cx="-15" cy="-10" r="5" class="pug-dark" />
+                        <circle cx="15" cy="-10" r="5" class="pug-dark" />
+                        <path d="M-10 10 Q0 20 10 10" stroke="#333" stroke-width="3" fill="none" />
+                        <!-- Cape -->
+                        <path d="M-40 0 Q0 -50 40 0 L40 40 Q0 50 -40 40 Z" fill="#590d22" />
+                        <!-- Collar -->
+                        <path d="M-20 -20 L0 -35 L20 -20" fill="none" stroke="white" stroke-width="4" />
+                    </g>`
+            },
+            {
+                id: 'ghost',
+                name: 'Boo-Dawg',
+                desc: 'Spooking everyone around.',
+                color: '#e0e1dd',
+                svg: `
+                    <g transform="translate(50,50)">
+                        <!-- Sheet -->
+                        <path d="M-35 -30 L35 -30 L40 40 Q20 50 0 40 Q-20 50 -40 40 Z" fill="white" opacity="0.9" />
+                        <!-- Eyes -->
+                        <circle cx="-12" cy="-10" r="4" fill="#333" />
+                        <circle cx="12" cy="-10" r="4" fill="#333" />
+                        <!-- Mouth -->
+                        <path d="M-5 10 Q0 15 5 10" stroke="#333" stroke-width="2" fill="none" />
+                    </g>`
+            },
+            {
+                id: 'zombie',
+                name: 'Zombi-D',
+                desc: 'Brains... and treats.',
+                color: '#588157',
+                svg: `
+                    <g transform="translate(50,50)">
+                        <circle r="45" fill="#588157" />
+                        <!-- Bandage -->
+                        <path d="M-20 -20 L20 20" stroke="white" stroke-width="6" />
+                        <path d="M20 -20 L-20 20" stroke="white" stroke-width="6" />
+                        <!-- Eyes -->
+                        <circle cx="-15" cy="-5" r="6" fill="white" />
+                        <circle cx="15" cy="-5" r="6" fill="white" />
+                        <circle cx="-15" cy="-5" r="2" fill="black" />
+                        <circle cx="15" cy="-5" r="2" fill="black" />
+                        <!-- Bite -->
+                        <path d="M-10 15 L10 15 L5 25 Z" fill="#333" />
+                    </g>`
+            },
+            {
+                id: 'superhero',
+                name: 'Super-Dawg',
+                desc: 'Justice is served.',
+                color: '#219ebc',
+                svg: `
+                    <g transform="translate(50,50)">
+                        <circle r="45" class="pug-body" />
+                        <!-- Mask -->
+                        <path d="M-35 -10 Q0 -25 35 -10 L35 10 Q0 20 -35 10 Z" fill="#d00000" />
+                        <path d="M-35 -10 L-40 -15 L-25 -10" fill="#d00000" />
+                        <path d="M35 -10 L40 -15 L25 -10" fill="#d00000" />
+                        <!-- Eyes -->
+                        <circle cx="-15" cy="-5" r="4" fill="white" />
+                        <circle cx="15" cy="-5" r="4" fill="white" />
+                        <!-- Cape -->
+                        <path d="M-30 0 Q0 60 30 0" fill="#d00000" opacity="0.8" />
+                    </g>`
+            },
+            {
+                id: 'witch',
+                name: 'Witch-Dawg',
+                desc: 'Hocus Pocus, give me treats!',
+                color: '#3a0ca3',
+                svg: `
+                    <g transform="translate(50,50)">
+                        <circle r="45" class="pug-body" />
+                        <!-- Hat -->
+                        <path d="M-30 10 L0 -40 L30 10 Z" fill="#3a0ca3" />
+                        <rect x="-35" y="10" width="70" height="8" fill="#3a0ca3" />
+                        <!-- Hat Band -->
+                        <rect x="-35" y="10" width="70" height="10" fill="#f72585" />
+                        <!-- Eyes -->
+                        <circle cx="-15" cy="-5" r="4" fill="#333" />
+                        <circle cx="15" cy="-5" r="4" fill="#333" />
+                        <!-- Nose -->
+                        <circle cx="0" cy="10" r="4" fill="#333" />
+                    </g>`
+            },
+            {
+                id: 'alien',
+                name: 'Alien-D',
+                desc: 'Take me to your leader.',
+                color: '#7209b7',
+                svg: `
+                    <g transform="translate(50,50)">
+                        <!-- Head -->
+                        <ellipse cx="0" cy="0" rx="40" ry="30" fill="#7209b7" />
+                        <!-- Eyes -->
+                        <ellipse cx="-15" cy="-5" rx="10" ry="6" fill="white" />
+                        <ellipse cx="15" cy="-5" rx="10" ry="6" fill="white" />
+                        <circle cx="-15" cy="-5" r="3" fill="black" />
+                        <circle cx="15" cy="-5" r="3" fill="black" />
+                        <!-- Antenna -->
+                        <path d="M0 -30 L0 -50" stroke="#7209b7" stroke-width="3" />
+                        <circle cx="0" cy="-50" fill="yellow" />
+                    </g>`
+            }
+        ];
+
+        // --- App Logic ---
+        const app = {
+            state: {
+                currentIdx: 0,
+                votes: {}, // { costumeId: count }
+                votedCostumeId: null,
+                leaderboard: []
+            },
+            
+            init() {
+                // Telegram Setup
+                const tg = window.Telegram && Telegram.WebApp;
+                if (tg) {
+                    tg.ready();
+                    tg.expand();
+                    // Set header color
+                    tg.setHeaderColor(tg.themeParams.bg_color || '#0b0f1a');
+                }
+
+                // Load State
+                this.loadState();
+                
+                // Render Initial View
+                if (this.state.votedCostumeId) {
+                    this.showScreen('screen-results');
+                    this.renderLeaderboard();
+                    if(tg) tg.MainButton.setText("Vote Again");
+                } else {
+                    this.showScreen('screen-welcome');
+                }
+            },
+
+            start() {
+                if (window.Telegram && Telegram.WebApp) {
+                    Telegram.WebApp.MainButton.setText("SHOW RESULTS");
+                    Telegram.WebApp.MainButton.show();
+                    Telegram.WebApp.MainButton.onClick(() => this.finish());
+                }
+                this.showScreen('screen-picker');
+                this.renderCard();
+            },
+
+            renderCard() {
+                const stage = document.getElementById('stage');
+                const costume = COSTUMES[this.state.currentIdx];
+                
+                // Clear stage
+                stage.innerHTML = '';
+
+                const card = document.createElement('div');
+                card.className = 'costume-card fade-in';
+                card.innerHTML = `
+                    <div style="color: ${costume.color}">${costume.svg}</div>
+                    <div class="costume-name" style="color: ${costume.color}">${costume.name}</div>
+                    <div class="costume-desc">${costume.desc}</div>
+                `;
+                stage.appendChild(card);
+            },
+
+            next() {
+                this.state.currentIdx = (this.state.currentIdx + 1) % COSTUMES.length;
+                this.animateCard('next');
+                this.haptic('light');
+            },
+
+            prev() {
+                this.state.currentIdx = (this.state.currentIdx - 1 + COSTUMES.length) % COSTUMES.length;
+                this.animateCard('prev');
+                this.haptic('light');
+            },
+
+            animateCard(direction) {
+                const stage = document.getElementById('stage');
+                const card = stage.querySelector('.costume-card');
+                
+                const translateX = direction === 'next' ? '-120%' : '120%';
+                const rotate = direction === 'next' ? '-10deg' : '10deg';
+                
+                card.style.transform = `translateX(${translateX}) rotate(${rotate})`;
+                card.style.opacity = '0';
+
+                setTimeout(() => {
+                    this.renderCard();
+                }, 200);
+            },
+
+            vote() {
+                const costume = COSTUMES[this.state.currentIdx];
+                this.state.votes[costume.id] = (this.state.votes[costume.id] || 0) + 1;
+                this.state.votedCostumeId = costume.id;
+                
+                this.saveState();
+                this.haptic('medium');
+                
+                if (window.Telegram && Telegram.WebApp) {
+                    Telegram.WebApp.MainButton.show();
+                }
+            },
+
+            finish() {
+                this.calculateLeaderboard();
+                this.showScreen('screen-results');
+                this.renderLeaderboard();
+                this.fireConfetti();
+                
+                if (window.Telegram && Telegram.WebApp) {
+                    Telegram.WebApp.MainButton.hide();
+                }
+            },
+
+            calculateLeaderboard() {
+                // Sort by votes desc
+                const sorted = Object.entries(this.state.votes).sort((a, b) => b[1] - a[1]);
+                this.state.leaderboard = sorted.slice(0, 3);
+            },
+
+            renderLeaderboard() {
+                const list = document.getElementById('leaderboard');
+                list.innerHTML = '';
+
+                this.state.leaderboard.forEach(([id, count], index) => {
+                    const costume = COSTUMES.find(c => c.id === id);
+                    const item = document.createElement('div');
+                    item.className = 'leaderboard-item fade-in';
+                    item.style.animationDelay = `${index * 0.1}s`;
+                    
+                    item.innerHTML = `
+                        <div class="rank">#${index + 1}</div>
+                        <div class="lb-content">
+                            <div style="width: 40px; height: 40px; display:flex; align-items:center; justify-content:center;">
+                                ${costume.svg.replace(/width="180"/g, 'width="40"').replace(/height="180"/g, 'height="40"')}
+                            </div>
+                            <div>
+                                <div class="lb-name" style="color: ${costume.color}">${costume.name}</div>
+                                <div class="lb-votes">${count} vote${count !== 1 ? 's' : ''}</div>
+                            </div>
+                        </div>
+                    `;
+                    list.appendChild(item);
+                });
+            },
+
+            reset() {
+                this.state.votes = {};
+                this.state.votedCostumeId = null;
+                this.state.leaderboard = [];
+                this.state.currentIdx = 0;
+                this.saveState();
+                
+                if (window.Telegram && Telegram.WebApp) {
+                    Telegram.WebApp.MainButton.hide();
+                }
+                
+                this.showScreen('screen-welcome');
+            },
+
+            showScreen(id) {
+                document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+                document.getElementById(id).classList.add('active');
+            },
+
+            haptic(type) {
+                if (window.Telegram && Telegram.WebApp && Telegram.WebApp.HapticFeedback) {
+                    Telegram.WebApp.HapticFeedback.impactOccurred(type);
+                }
+            },
+
+            saveState() {
+                try {
+                    localStorage.setItem('dawg_halloween', JSON.stringify(this.state));
+                } catch (e) { console.warn('Storage failed', e); }
+            },
+
+            loadState() {
+                try {
+                    const saved = localStorage.getItem('dawg_halloween');
+                    if (saved) {
+                        this.state = JSON.parse(saved);
+                    }
+                } catch (e) { console.warn('Load failed', e); }
+            }
+        };
+
+        // --- Confetti Engine (Lightweight) ---
+        app.fireConfetti = function() {
+            const canvas = document.getElementById('confetti-canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            
+            const particles = [];
+            const colors = ['#ff7a2f', '#a855f7', '#4ade80', '#f2f5ff', '#ffffff'];
+            
+            for(let i=0; i<100; i++) {
+                particles.push({
+                    x: canvas.width / 2,
+                    y: canvas.height / 2,
+                    vx: (Math.random() - 0.5) * 15,
+                    vy: (Math.random() - 0.5) * 15 - 5,
+                    size: Math.random() * 8 + 4,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    life: 100,
+                    gravity: 0.5
+                });
+            }
+
+            function update() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                let active = false;
+                
+                particles.forEach(p => {
+                    if(p.life > 0) {
+                        active = true;
+                        p.x += p.vx;
+                        p.y += p.vy;
+                        p.vy += p.gravity;
+                        p.life--;
+                        
+                        ctx.fillStyle = p.color;
+                        ctx.fillRect(p.x, p.y, p.size, p.size);
+                    }
+                });
+
+                if(active) requestAnimationFrame(update);
+                else ctx.clearRect(0, 0, canvas.width, canvas.height);
+            }
+            
+            update();
+        };
+
+        // Initialize
+        window.addEventListener('DOMContentLoaded', () => app.init());
+
+    </script>
+</body>
+</html>
